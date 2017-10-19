@@ -6,97 +6,94 @@ app->pg->migrations->from_data->migrate;
 app->secrets(['Keystone']);
 
 post '/' => sub {
-	my $c  = shift;
-	my $y = 0;
-	my $x = 0;
-	my $rfid = $c->req->json->{'RFID'};
-	my $response= 'error';
-  	$c->session(expiration => 20);
-  	if ($c->session('user') eq '1')#executes if person has already swipped login tag
-  	#check if it is book, put it after prfid, and set status to out
-  	{
-  		warn 'Step 2';
-  		my @books = @{$c->pg->db->query('select brfid from books')->hashes};
-  			foreach my $book ( @books ){
-  				if($book->{'brfid'} eq $rfid){
-  					$y=1;
-  				}
-  			}
-  		if($y==1){
-  			my @values = ('out', $rfid);
-  			$c->pg->db->query('update books set status = ? where brfid = ?' => @values);
-  			@values = ($c->session('urfid'), $rfid);
-  			$c->pg->db->query('insert into log (prfid, brfid, tick) values (?, ?, current_timestamp)' => @values);
-  			$response= 'check out logged';
-  		}
-  	$c->session(expiration => 0);
-  	}
-  	else{#if book it checks out, if person it waits for next swipe and will store data
-  	#otherwise it stops
-  	warn 'Step 1';
-  		my @people = @{$c->pg->db->query('select prfid from people')->hashes};
-  		$x = 0;
-  		foreach my $peep ( @people ){ # checking if person rfid
-  			if ($peep->{'prfid'} eq $rfid){
-  				$x = 1;
-  			}
-  		}
-  		if ($x==1) # found person
-  		{
-  			warn 'person found';
-  			$c->session(user => '1');
-  			$c->session(urfid => $rfid);
-  			$c->session(expiration => 20);
-  			$response= 'logged in';
-  		}
-  		else{ # checking if book rfid
-  			warn 'book check';
-  			my @books = @{$c->pg->db->query('select brfid from books')->hashes};
-  			$y = 0;
-  			foreach my $book ( @books ){
-  				if($book->{brfid} eq $rfid){
+  my $c  = shift;
+  my $y = 0;
+  my $x = 0;
+  my $rfid = $c->req->json->{'RFID'};
+  my $response= 'error';
+    $c->session(expiration => 20);
+    if ($c->session('user') eq '1')#executes if person has already swipped login tag
+    #check if it is book, put it after prfid, and set status to out
+    {
+      warn 'Step 2';
+      my @books = @{$c->pg->db->query('select brfid from books')->hashes};
+        foreach my $book ( @books ){
+          if($book->{'brfid'} eq $rfid){
+            $y=1;
+          }
+        }
+      if($y==1){
+        my @values = ('out', $rfid);
+        $c->pg->db->query('update books set status = ? where brfid = ?' => @values);
+        @values = ($c->session('urfid'), $rfid);
+        $c->pg->db->query('insert into log (prfid, brfid, tick) values (?, ?, current_timestamp)' => @values);
+        $response= 'check out logged';
+      }
+    $c->session(expiration => 0);
+    }
+    else{#if book it checks out, if person it waits for next swipe and will store data
+    #otherwise it stops
+    warn 'Step 1';
+      my @people = @{$c->pg->db->query('select prfid from people')->hashes};
+      $x = 0;
+      foreach my $peep ( @people ){ # checking if person rfid
+        if ($peep->{'prfid'} eq $rfid){
+          $x = 1;
+        }
+      }
+      if ($x==1) # found person
+      {
+        warn 'person found';
+        $c->session(user => '1');
+        $c->session(urfid => $rfid);
+        $c->session(expiration => 20);
+        $response= 'logged in';
+      }
+      else{ # checking if book rfid
+        warn 'book check';
+        my @books = @{$c->pg->db->query('select brfid from books')->hashes};
+        $y = 0;
+        foreach my $book ( @books ){
+          if($book->{brfid} eq $rfid){
 
-  					$y=1;
-  				}
-  			}
-  			
-  			if($y==1){
-  				warn 'book found';
-  				my @values = ('in', $rfid);
-  				$c->pg->db->query('update books set status = ? where brfid = ?' => @values); #sets book status to in
-  				$response= 'Book checked in';
-  			}
-  			$c->session(expiration => 0);
-  		}
+            $y=1;
+          }
+        }
+        
+        if($y==1){
+          warn 'book found';
+          my @values = ('in', $rfid);
+          $c->pg->db->query('update books set status = ? where brfid = ?' => @values); #sets book status to in
+          $response= 'Book checked in';
+        }
+        $c->session(expiration => 0);
+      }
 
-  	}
+    }
 
-  	$c->render(json => {resp => $response});
+    $c->render(json => {resp => $response});
   };
 
 
 get '/' => sub {
   my $c = shift;
-  
-  $c->render(template => 'catalog');
+  my @empty= ['empty'];
+  #$c->stash(table => @empty);
+  warn ref(@empty);
+  $c->render(template => 'index', table => @empty);
 };
 get '/catalog' => sub {
-	my $c = shift;
-	my @bookha = @{$c->pg->db->query('select brfid from books')->hashes};
-  my @bookrfid = ();
-  my @bookname = ();
-  foreach my $book ( @bookha )
-  {
-  		push @bookrfid, $book->{'brfid'};
-  }
-  	@bookha = @{$c->pg->db->query('select name from books')->hashes};
-  	foreach my $book ( @bookha )
-  	{
-  		push @bookname, $book->{'name'};
-  	}
-  	my %books;
-	@books{@bookname} = @bookrfid;
-	$c->render(json => %books)
+  my $c = shift;
+  my @books;
+  for my $each (@{$c->pg->db->query('select * from books')->arrays->to_array}){
+  push @books, @{$each};
+}
+
+push @books, ($#books+1);
+push @books, 3;
+warn @books;
+  #$c->stash(table => @books);
+  $c->render(template => 'index', table => @books);
 };
 
 
@@ -113,15 +110,7 @@ drop table chec;
 drop table books;
 drop table people;
 
-@@ catalog.html.ep
-<html>
-<script type="text/javascript">
-    var data = {key1: "val1", key2: "val2"};
-    for (var key in data) {
-       $('table').append('<tr><td>' + data[key] + '</td></tr>');
-    }
-</script>
-</html>
+
 
 @@ index.html.ep
 <html>
@@ -131,7 +120,7 @@ drop table people;
     display:none;
 }
 h1 {
-	color:#66a992;
+  color:#66a992;
 }
  
 /*----- Menu -----*/
@@ -291,17 +280,6 @@ jQuery(document).ready(function() {
  
         e.preventDefault();
     });
-    $.getJSON( "/catalog", function( data ) {
-  var items = [];
-  $.each( data, function( key, val ) {
-    items.push( "<li id='" + key + "'>" + val + "</li>" );
-  });
- 
-  $( "<ul/>", {
-    "class": "my-new-list",
-    html: items.join( "" )
-  }).appendTo( "body" );
-});
 });
 
 </script>
@@ -309,7 +287,9 @@ jQuery(document).ready(function() {
 <h1>Keystone Library<h1>
 <nav class="menu">
     <ul class="active">
-        <li id="catalog", class="current-item"><a href="/catalog">Catalog</a></li>
+
+        <li id="home", class="current-item"><a href="/">Home</a></li>
+        <li><a href="/catalog">Catalog</a></li>
         <li><a href="/logs">Checking Logs</a></li>
         <li><a href="/user">User Database</a></li>
         <li><a href="/secret">Book Database</a></li>
@@ -323,6 +303,18 @@ jQuery(document).ready(function() {
     </form>
 </nav>
 <body>
-
+% my @info = @$table;
+%if($#info > 1){
+%   int loop = pop @info
+%   int total = pop @info
+%   for(my $i = 0; $i < loop; $i++)  {
+    <tr>
+%     for (my $j=0; $j < (total/loop); $j++) {
+        <td><%= shift @info %></td>
+%     }
+    </tr>
+%  }
+% }
+hi there
 </body>
 </html>
