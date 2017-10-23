@@ -77,25 +77,86 @@ post '/' => sub {
 
 get '/' => sub {
   my $c = shift;
-  my @empty= ['empty'];
-  #$c->stash(table => @empty);
-  warn ref(@empty);
-  $c->render(template => 'index', table => @empty);
+  $c->render(template => 'index', table => 'home', result => '');
 };
 get '/catalog' => sub {
   my $c = shift;
-  my @books;
-  for my $each (@{$c->pg->db->query('select * from books')->arrays->to_array}){
-  push @books, @{$each};
-}
-
-push @books, ($#books+1);
-push @books, 3;
-warn @books;
-  #$c->stash(table => @books);
-  $c->render(template => 'index', table => @books);
+  $c->render(template => 'index', table => 'catalog', result => '');
+};
+get '/user' => sub {
+  my $c = shift;
+  $c->render(template => 'index', table => 'users', result => '');
+};
+get '/logs' => sub {
+  my $c = shift;
+  $c->render(template => 'index', table => 'logs', result => '');
+};
+get '/update' => sub {
+  my $c = shift;
+  $c->render(template => 'index', table => 'update', result => '');
 };
 
+
+get '/search' => sub {
+  my $c = shift;
+  my $result='error';
+  my $rfid = $c->param('RFID');
+  my $type = $c->param('medium');
+  my $check;
+  if(length($rfid)>0){
+  if($type eq 'book'){
+    $check = $c->pg->db->query('select name from books where brfid = ?' => $rfid)->array;
+  if(defined($check)){
+  $result = 'RFID: '.$rfid ." represents Book: ". $check->[0];
+  }}
+  else{
+    $check = $c->pg->db->query('select name from people where prfid = ?' => $rfid)->array;
+  if(defined($check)){
+  $result = 'RFID: '.$rfid ." represents User: ". $check->[0];
+  }}
+}
+warn $result;
+  $c->render(template => 'index', table => 'search', result => $result);
+};
+
+
+
+get '/add' => sub {
+  my $c = shift;
+  my $rfid = $c->param('rfid');
+  my $name = $c->param('name');
+  my $root = 'add';
+  if(length($rfid)>0 && length($name)>0){
+  my $type = $c->param('type');
+  my @values;
+  if($type eq 'Book'){
+  @values = ($rfid, $name, 'in');
+  warn @values;
+  $c->pg->db->query('insert into books (brfid, name, status) values (?, ?, ?)' => @values);
+  }
+  else{
+    @values = ($rfid, $name);
+  $c->pg->db->query('insert into people (prfid, name) values (?, ?)' => @values);
+  }
+}
+else{
+$root = 'error';
+  }
+  $c->render(template => 'index', table => $root, result => '', result => '');
+};
+
+get '/catalog/:id' => sub {
+  my $c = shift;
+  warn $c->param('id');
+  $c->pg->db->query('delete from books where name = ?' => $c->param('id'));
+  $c->render(template => 'index', table => 'catalog', result => '');
+};
+get '/user/:id' => sub {
+  my $c = shift;
+  warn $c->param('id');
+  $c->pg->db->query('delete from people where name = ?' => $c->param('id'));
+  $c->render(template => 'index', table => 'users', result => '');
+};
 
 app->start;
 __DATA__
@@ -110,11 +171,26 @@ drop table chec;
 drop table books;
 drop table people;
 
+@@ add.html.ep
 
 
 @@ index.html.ep
 <html>
 <style>
+/*----- Table -----*/
+table {
+    border-collapse: collapse;
+}
+th {
+    background-color: #303030;
+    color: #66a992;
+}
+tr:nth-child(even) {background-color: #f2f2f2}
+th, td {
+    border-bottom: 1px solid #ddd;
+    padding: 15px;
+    text-align: left;
+}
 /*----- Toggle Button -----*/
 .toggle-nav {
     display:none;
@@ -270,6 +346,8 @@ h1 {
     .search-form input {
         box-shadow:-1px 1px 2px rgba(0,0,0,0.1);
     }
+h4{
+  font-size: 10px;
 }
 </style>
 <script>
@@ -287,34 +365,181 @@ jQuery(document).ready(function() {
 <h1>Keystone Library<h1>
 <nav class="menu">
     <ul class="active">
-
+        % if($table eq 'logs'){
+        <li id="home"><a href="/">Home</a></li>
+        <li ><a href="/catalog">Catalog</a></li>
+        <li class="current-item"><a href="/logs">Checking Logs</a></li>
+        <li><a href="/user">User Database</a></li>
+        <li><a href="/update">Add Books or Users</a></li>
+        %}
+        % elsif($table eq 'users'){
+        <li id="home"><a href="/">Home</a></li>
+        <li><a href="/catalog">Catalog</a></li>
+        <li><a href="/logs">Checking Logs</a></li>
+        <li class="current-item"><a href="/user">User Database</a></li>
+        <li><a href="/update">Add Books or Users</a></li>
+        %}
+        % elsif($table eq 'catalog'){
+        <li id="home"><a href="/">Home</a></li>
+        <li class="current-item"><a href="/catalog">Catalog</a></li>
+        <li><a href="/logs">Checking Logs</a></li>
+        <li><a href="/user">User Database</a></li>
+        <li><a href="/update">Add Books or Users</a></li>
+        %}
+        % elsif($table eq 'home'){
         <li id="home", class="current-item"><a href="/">Home</a></li>
         <li><a href="/catalog">Catalog</a></li>
         <li><a href="/logs">Checking Logs</a></li>
         <li><a href="/user">User Database</a></li>
-        <li><a href="/secret">Book Database</a></li>
+        <li><a href="/update">Add Books or Users</a></li>
+        %}
+        % else{
+        <li id="home"><a href="/">Home</a></li>
+        <li><a href="/catalog">Catalog</a></li>
+        <li><a href="/logs">Checking Logs</a></li>
+        <li><a href="/user">User Database</a></li>
+        <li class="current-item"><a href="/update">Add Books or Users</a></li>
+        %}
     </ul>
  
     <a class="toggle-nav" href="#">&#9776;</a>
  
-    <form class="search-form">
-        <input type="text">
-        <button>Search</button>
-    </form>
+   
+    <form action="/search", class="search-form">
+%= select_field medium => ['book', 'user']
+  <input name="RFID" type="text">
+  <button type="submit" value="Submit">Search RFID Value</button>
+</form>
 </nav>
+
 <body>
-% my @info = @$table;
-%if($#info > 1){
-%   int loop = pop @info
-%   int total = pop @info
-%   for(my $i = 0; $i < loop; $i++)  {
+% if($table eq 'catalog')
+%{
+% my @sth = @{pg->db->query('select * from books')->arrays->to_array};
+  <br>
+  
+  <table>
     <tr>
-%     for (my $j=0; $j < (total/loop); $j++) {
-        <td><%= shift @info %></td>
-%     }
+      <th>RFID</th>
+      <th>Book Name</th>
+      <th>Stock Status</th>
     </tr>
-%  }
+    % for my $row (@sth) {
+      <tr>
+        % for my $text (@$row) {
+          <td><%= $text %></td>
+        % }
+        <td>
+        %= link_to delete => '/catalog/' . @$row[1]
+        </td>
+      </tr>
+
+    % }
+    </table>
+%}
+% elsif($table eq 'users')
+%{
+% my @sth = @{pg->db->query('select * from people')->arrays->to_array};
+  <br>
+  <table>
+    <tr>
+      <th>RFID</th>
+      <th>Username</th>
+    </tr>
+    % for my $row (@sth) {
+      <tr>
+        % for my $text (@$row) {
+          <td><%= $text %></td>
+        % }
+        <td>
+        %= link_to delete => '/user/' . @$row[1]
+        </td>
+      </tr>
+    % }
+    </table>
+%}
+% elsif($table eq 'logs')
+%{
+% my @sth = @{pg->db->query('select * from log limit 100')->arrays->to_array};
+  <br>
+  <table>
+    <tr>
+      <th>Person RFID</th><th></th>
+      <th>Book RFID</th>
+      <th>Timestamp</th>
+    </tr>
+    % for my $row (reverse(@sth)) {
+      % my $x=0;
+      <tr>
+        % for my $text (@$row) {
+          % $x++;
+          % if($x==1){
+              <td><%=$text %><td>
+          % }
+          % elsif($x==2){
+            <td><%= $text%></td>
+          % }
+          % else{
+          <td><%=$text %></td>
+        % }
+        %}
+      </tr>
+    % }
+    </table>
+%}
+% elsif($table eq "update"){
+<h3>
+%= form_for add => begin
+User or Book
+%= select_field type => ['Book', 'User']
+RFID
+  %= text_field 'rfid'
+Name
+  %= text_field 'name'
+  %= submit_button 'Submit'
+% end
+</h3>
 % }
-hi there
+% elsif($table eq 'add'){
+<h3>
+SUCCESS!
+%= form_for add => begin
+User or Book
+%= select_field type => ['Book', 'User']
+RFID
+  %= text_field 'rfid'
+Name
+  %= text_field 'name'
+  %= submit_button 'Submit'
+% end
+</h3>
+% }
+% elsif($table eq 'error'){
+<h3 color = red>ERROR</h3>
+%= form_for add => begin
+User or Book
+%= select_field type => ['Book', 'User']
+RFID
+  %= text_field 'rfid'
+Name
+  %= text_field 'name'
+  %= submit_button 'Submit'
+% end
+</h3>
+% }
+% elsif($table eq 'search'){
+<h3>
+%= $result;
+</h3>
+% }
+% else{}
+  
 </body>
 </html>
+
+@@ secret.html.ep
+<html>
+Secrets! Secrets! are no fun
+Until they're shared with everyone!
+
+<html>
