@@ -1,4 +1,0 @@
-insert into people (prfid, name) values ('1.1.1', 'Nassim')
-update books set status = 'out' where brfid = '2.2.2'
-insert into people (prfid, name) values ('3.3.3', 'Jiji')
-insert into books (brfid, name, status) values ('4.4.4', 'goose', 'in')
