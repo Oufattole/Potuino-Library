@@ -200,7 +200,7 @@ h1 {
 }
  
 /*----- Menu -----*/
-@media screen and (min-width: 860px) {
+@media screen and (min-width: 1000px) {
     .menu {
         width:95%;
         padding:10px 18px;
@@ -276,7 +276,7 @@ h1 {
     }
 }
  
-@media screen and (max-width: 860px) {
+@media screen and (max-width: 1000px) {
     .menu {
         position:relative;
         display:inline-block;
@@ -370,35 +370,35 @@ jQuery(document).ready(function() {
         <li ><a href="/catalog">Catalog</a></li>
         <li class="current-item"><a href="/logs">Checking Logs</a></li>
         <li><a href="/user">User Database</a></li>
-        <li><a href="/update">Add Books or Users</a></li>
+        <li><a href="/update">Add Units</a></li>
         %}
         % elsif($table eq 'users'){
         <li id="home"><a href="/">Home</a></li>
         <li><a href="/catalog">Catalog</a></li>
         <li><a href="/logs">Checking Logs</a></li>
         <li class="current-item"><a href="/user">User Database</a></li>
-        <li><a href="/update">Add Books or Users</a></li>
+        <li><a href="/update">Add Units</a></li>
         %}
         % elsif($table eq 'catalog'){
         <li id="home"><a href="/">Home</a></li>
         <li class="current-item"><a href="/catalog">Catalog</a></li>
         <li><a href="/logs">Checking Logs</a></li>
         <li><a href="/user">User Database</a></li>
-        <li><a href="/update">Add Books or Users</a></li>
+        <li><a href="/update">Add Units</a></li>
         %}
         % elsif($table eq 'home'){
         <li id="home", class="current-item"><a href="/">Home</a></li>
         <li><a href="/catalog">Catalog</a></li>
         <li><a href="/logs">Checking Logs</a></li>
         <li><a href="/user">User Database</a></li>
-        <li><a href="/update">Add Books or Users</a></li>
+        <li><a href="/update">Add Units</a></li>
         %}
         % else{
         <li id="home"><a href="/">Home</a></li>
         <li><a href="/catalog">Catalog</a></li>
         <li><a href="/logs">Checking Logs</a></li>
         <li><a href="/user">User Database</a></li>
-        <li class="current-item"><a href="/update">Add Books or Users</a></li>
+        <li class="current-item"><a href="/update">Add Units</a></li>
         %}
     </ul>
  
