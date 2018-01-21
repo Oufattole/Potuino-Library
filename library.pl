@@ -4,6 +4,33 @@ app->config(hypnotoad => {listen => ['http://*:3004']});
 helper pg => sub { state $pg = Mojo::Pg->new('postgresql://qeqiusom:Qt9BJfRld9kw3qBtrpflbcERIo8rmHga@stampy.db.elephantsql.com:5432/qeqiusom') };
 app->pg->migrations->from_data->migrate;
 app->secrets(['Keystone']);
+plugin 'ReplyTable';
+
+get '/checking' => sub {
+  my $c = shift;
+  # $c->param('')
+  my @values;
+  my $response = '';
+  if($c->param('status') eq 'out'){
+  	@values = ('out', $c->param('book'));
+  	$c->pg->db->query('update books set status = ? where name = ?' => @values);
+  	@values = ($c->param('name'), $c->param('book'));
+  	$c->pg->db->query('insert into log (prfid, brfid, tick) values (?, ?, current_timestamp)' => @values);
+  	$response = 'checkout logged';
+  }
+  else{
+  	my @values = ('in', $c->param('book'));
+    $c->pg->db->query('update books set status = ? where name = ?' => @values);
+    $response = 'book checked in';
+  }
+	my @books = [];
+  foreach my $each (@{$c->pg->db->query('select name from books')->arrays->to_array}){
+  	push @books, $each->[0];
+  	}
+  	shift @books;
+  	unshift @books, $response;
+  $c->render(template => 'reply_table', section => 'home', result => \@books);
+};
 
 post '/' => sub {
   my $c  = shift;
@@ -77,23 +104,33 @@ post '/' => sub {
 
 get '/' => sub {
   my $c = shift;
-  $c->render(template => 'index', table => 'home', result => '');
+  my @books = [];
+
+  foreach my $each (@{$c->pg->db->query('select name from books')->arrays->to_array}){
+  	push @books, $each->[0];
+  	}
+  	shift @books;
+  	unshift @books, '';
+  $c->render(template => 'reply_table', section => 'home', result => \@books);
 };
 get '/catalog' => sub {
   my $c = shift;
-  $c->render(template => 'index', table => 'catalog', result => '');
+	$c->stash(section => 'catalog', result => '');
+  $c->reply->table($c->pg->db->query('select * from books')->arrays->to_array);
 };
 get '/user' => sub {
   my $c = shift;
-  $c->render(template => 'index', table => 'users', result => '');
+  $c->stash(section => 'users', result => '');
+    $c->reply->table($c->pg->db->query('select * from people')->arrays->to_array);
 };
 get '/logs' => sub {
   my $c = shift;
-  $c->render(template => 'index', table => 'logs', result => '');
+    $c->stash(section => 'logs', result => '');
+$c->reply->table($c->pg->db->query('select * from log limit 100')->arrays->to_array);
 };
 get '/update' => sub {
   my $c = shift;
-  $c->render(template => 'index', table => 'update', result => '');
+  $c->render(template => 'reply_table', section => 'update', result => '');
 };
 
 
@@ -116,8 +153,10 @@ get '/search' => sub {
   }}
 }
 warn $result;
-  $c->render(template => 'index', table => 'search', result => $result);
+  $c->render(template => 'reply_table', section => 'search', result => $result);
 };
+
+
 
 
 
@@ -142,20 +181,22 @@ get '/add' => sub {
 else{
 $root = 'error';
   }
-  $c->render(template => 'index', table => $root, result => '', result => '');
+  $c->render(template => 'reply_table', section => $root, result => '');
 };
 
 get '/catalog/:id' => sub {
   my $c = shift;
   warn $c->param('id');
   $c->pg->db->query('delete from books where name = ?' => $c->param('id'));
-  $c->render(template => 'index', table => 'catalog', result => '');
+  $c->stash(section => 'catalog', result => '');
+  $c->reply->table($c->pg->db->query('select * from books')->arrays->to_array);
 };
 get '/user/:id' => sub {
   my $c = shift;
   warn $c->param('id');
   $c->pg->db->query('delete from people where name = ?' => $c->param('id'));
-  $c->render(template => 'index', table => 'users', result => '');
+  $c->stash(section => 'users', result => '');
+    $c->reply->table($c->pg->db->query('select * from people')->arrays->to_array);
 };
 
 app->start;
@@ -171,10 +212,8 @@ drop table chec;
 drop table books;
 drop table people;
 
-@@ add.html.ep
 
-
-@@ index.html.ep
+@@ reply_table.html.ep
 <html>
 <style>
 /*----- Table -----*/
@@ -365,28 +404,28 @@ jQuery(document).ready(function() {
 <h1>Keystone Library<h1>
 <nav class="menu">
     <ul class="active">
-        % if($table eq 'logs'){
+        % if($section eq 'logs'){
         <li id="home"><a href="/">Home</a></li>
         <li ><a href="/catalog">Catalog</a></li>
         <li class="current-item"><a href="/logs">Checking Logs</a></li>
         <li><a href="/user">User Database</a></li>
         <li><a href="/update">Add Units</a></li>
         %}
-        % elsif($table eq 'users'){
+        % elsif($section eq 'users'){
         <li id="home"><a href="/">Home</a></li>
         <li><a href="/catalog">Catalog</a></li>
         <li><a href="/logs">Checking Logs</a></li>
         <li class="current-item"><a href="/user">User Database</a></li>
         <li><a href="/update">Add Units</a></li>
         %}
-        % elsif($table eq 'catalog'){
+        % elsif($section eq 'catalog'){
         <li id="home"><a href="/">Home</a></li>
         <li class="current-item"><a href="/catalog">Catalog</a></li>
         <li><a href="/logs">Checking Logs</a></li>
         <li><a href="/user">User Database</a></li>
         <li><a href="/update">Add Units</a></li>
         %}
-        % elsif($table eq 'home'){
+        % elsif($section eq 'home'){
         <li id="home", class="current-item"><a href="/">Home</a></li>
         <li><a href="/catalog">Catalog</a></li>
         <li><a href="/logs">Checking Logs</a></li>
@@ -413,133 +452,85 @@ jQuery(document).ready(function() {
 </nav>
 
 <body>
-% if($table eq 'catalog')
-%{
-% my @sth = @{pg->db->query('select * from books')->arrays->to_array};
-  <br>
-  
-  <table>
-    <tr>
-      <th>RFID</th>
-      <th>Book Name</th>
-      <th>Stock Status</th>
-    </tr>
-    % for my $row (@sth) {
-      <tr>
-        % for my $text (@$row) {
-          <td><%= $text %></td>
-        % }
-        <td>
-        %= link_to delete => '/catalog/' . @$row[1]
-        </td>
-      </tr>
 
-    % }
-    </table>
-%}
-% elsif($table eq 'users')
-%{
-% my @sth = @{pg->db->query('select * from people')->arrays->to_array};
-  <br>
-  <table>
-    <tr>
-      <th>RFID</th>
-      <th>Username</th>
-    </tr>
-    % for my $row (@sth) {
+% my @headers;
+% if ($section eq 'catalog' || $section eq 'users' || $section eq 'logs'){
+	% my @headers;
+	% if($section eq 'catalog'){
+		% @headers = ('RFID', 'Book Name', 'Stock Status');
+	%}
+	% elsif($section eq 'users'){
+		% @headers = ('RFID', 'Username');
+	%}
+	% else{
+		% @headers = ('Person RFID', 'Book RFID', 'Timestamp');
+	%}
+% my $skip = 0;
+% my $table = stash 'reply_table.table';
+<table>
+    <thead><tr>
+      % for my $header (@headers) {
+        <th><%= $header %></th>
+      % }
+    </tr></thead>
+  <tbody>
+    % for my $row (reverse(@$table)) {
+      % if ($skip) { $skip = 0; next }
       <tr>
-        % for my $text (@$row) {
-          <td><%= $text %></td>
+        % for my $value (@$row) {
+          <td><%= $value %></td>
         % }
-        <td>
-        %= link_to delete => '/user/' . @$row[1]
-        </td>
-      </tr>
-    % }
-    </table>
-%}
-% elsif($table eq 'logs')
-%{
-% my @sth = @{pg->db->query('select * from log limit 100')->arrays->to_array};
-  <br>
-  <table>
-    <tr>
-      <th>Person RFID</th><th></th>
-      <th>Book RFID</th>
-      <th>Timestamp</th>
-    </tr>
-    % for my $row (reverse(@sth)) {
-      % my $x=0;
-      <tr>
-        % for my $text (@$row) {
-          % $x++;
-          % if($x==1){
-              <td><%=$text %><td>
-          % }
-          % elsif($x==2){
-            <td><%= $text%></td>
-          % }
-          % else{
-          <td><%=$text %></td>
+        % if($section eq 'catalog'){
+        <td><%= link_to delete => '/catalog/' . @$row[1] %> </td>
         % }
+        % if($section eq 'users'){
+        <td><%= link_to delete => '/user/' . @$row[1] %> </td>
         %}
       </tr>
     % }
-    </table>
-%}
-% elsif($table eq "update"){
+  </tbody>
+</table>
+% }
+% elsif($section eq 'home'){
 <h3>
-%= form_for add => begin
-User or Book
-%= select_field type => ['Book', 'User']
-RFID
-  %= text_field 'rfid'
-Name
+% my @books = ();
+% for my $value (@{$result}) {
+          % push @books, $value
+    % }
+% my $resp = shift @books;
+%= form_for checking => begin
+Are you checking out or in?
+%= select_field status => ['out', 'in']
+<br>
+What book do you have?
+%= select_field book => \@books
+<br>
+What is your name
   %= text_field 'name'
   %= submit_button 'Submit'
 % end
+%= $resp
+
 </h3>
+
 % }
-% elsif($table eq 'add'){
-<h3>
-SUCCESS!
-%= form_for add => begin
-User or Book
-%= select_field type => ['Book', 'User']
-RFID
-  %= text_field 'rfid'
-Name
-  %= text_field 'name'
-  %= submit_button 'Submit'
-% end
-</h3>
-% }
-% elsif($table eq 'error'){
-<h3 color = red>ERROR</h3>
-%= form_for add => begin
-User or Book
-%= select_field type => ['Book', 'User']
-RFID
-  %= text_field 'rfid'
-Name
-  %= text_field 'name'
-  %= submit_button 'Submit'
-% end
-</h3>
-% }
-% elsif($table eq 'search'){
+% elsif($section eq 'search'){
 <h3>
 %= $result;
 </h3>
 % }
-% else{}
-  
+% else {
+<h3>
+%= form_for add => begin
+User or Book
+%= select_field type => ['Book', 'User']
+RFID
+  %= text_field 'rfid'
+Name
+  %= text_field 'name'
+  %= submit_button 'Submit'
+% end
+</h3>
+% }
 </body>
 </html>
-
-@@ secret.html.ep
-<html>
-Secrets! Secrets! are no fun
-Until they're shared with everyone!
-
-<html>
